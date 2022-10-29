@@ -28,20 +28,22 @@ def run_command_validate(command):
 
 
 parser = ArgumentParser(usage='%(prog)s [options]')
-parser.add_argument("-g","--grep", action="append", dest="grep", default=None,
-                    help="grep expression - can be passed multiple times")
-parser.add_argument("-k", "--kind", action="append", dest="kind", default=None,
+parser.add_argument("-d", "--directory", action="store", dest="directory", default=None,
+                    required=True, help="directory path to build")
+name_matcher = parser.add_mutually_exclusive_group()
+name_matcher.add_argument("-n","--name", action="append", dest="name", default=None,
+                    help="filter by name - can be passed multiple times")
+name_matcher.add_argument("-xn", "--exclude-name", action="append", dest="xname", default=None,
+                    help="exclude by name - can be passed multiple times")
+kind_matcher = parser.add_mutually_exclusive_group()
+kind_matcher.add_argument("-k", "--kind", action="append", dest="kind", default=None,
                     help="filter by kind - can be passed multiple times")
-parser.add_argument("-o", "--overlay", action="store", dest="overlay", default=None,
-                    required=True, help="overlay name to build")
-parser.add_argument("-xg", "--exclude-grep", action="append", dest="xgrep", default=None,
-                    help="exclude grep expression - can be passed multiple times")
-parser.add_argument("-xk", "--exclude-kind", action="append", dest="xkind", default=None,
+kind_matcher.add_argument("-xk", "--exclude-kind", action="append", dest="xkind", default=None,
                     help="exclude by kind - can be passed multiple times")
 args = parser.parse_args()
 
 
-kustomize_out = run_command_validate(f'kustomize build overlays/{args.overlay}')
+kustomize_out = run_command_validate(f'kustomize build {args.directory}')
 k8s_objects = yaml.safe_load_all(kustomize_out)
 matches = []
 for obj in k8s_objects:
@@ -49,17 +51,17 @@ for obj in k8s_objects:
         print(f'Error in object {0}\nCould not find kind or metadata.name field!')
         exit(1)
     if args.kind is not None \
-        and not any(k for k in args.kind if k.lower() in obj['kind'].lower()):
+        and not any(k for k in args.kind if k.lower() == obj['kind'].lower()):
             continue
     if args.xkind is not None \
-        and any(k for k in args.xkind if k.lower() in obj['kind'].lower()):
+        and any(k for k in args.xkind if k.lower() == obj['kind'].lower()):
             continue
 
-    if args.grep is not None \
-        and not any(k for k in args.grep if k.lower() in obj['metadata']['name'].lower()):
+    if args.name is not None \
+        and not any(k for k in args.name if k.lower() == obj['metadata']['name'].lower()):
             continue
-    if args.xgrep is not None \
-        and any(k for k in args.xgrep if k.lower() in obj['metadata']['name'].lower()):
+    if args.xname is not None \
+        and any(k for k in args.xname if k.lower() == obj['metadata']['name'].lower()):
             continue
     matches.append(obj)
 
